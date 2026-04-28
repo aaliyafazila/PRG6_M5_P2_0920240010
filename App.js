@@ -3,6 +3,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { MaterialIcons } from "@expo/vector-icons";
+import { AuthProvider } from "./context/AuthContext";
 
 import HomeScreen from "./pages/HomeScreen";
 import HistoryScreen from "./pages/HistoryScreen";
@@ -31,37 +32,39 @@ function HistoryStack() {
 
 export default function App() {
   return (
-    <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={{
-          tabBarActiveTintColor: "#0056A0",
-          headerShown: false,
-        }}
-      >
-        {/* Home Tab */}
-        <Tab.Screen
-          name="HomeTab"
-          component={HomeScreen}
-          options={{
-            tabBarLabel: "Beranda",
-            tabBarIcon: ({ color }) => (
-              <MaterialIcons name="home" size={24} color={color} />
-            ),
+    <AuthProvider>
+      <NavigationContainer>
+        <Tab.Navigator
+          screenOptions={{
+            tabBarActiveTintColor: "#0056A0",
+            headerShown: false,
           }}
-        />
+        >
+          {/* Home Tab */}
+          <Tab.Screen
+            name="HomeTab"
+            component={HomeScreen}
+            options={{
+              tabBarLabel: "Beranda",
+              tabBarIcon: ({ color }) => (
+                <MaterialIcons name="home" size={24} color={color} />
+              ),
+            }}
+          />
 
-        {/* History Tab */}
-        <Tab.Screen
-          name="HistoryTab"
-          component={HistoryStack}
-          options={{
-            tabBarLabel: "Riwayat",
-            tabBarIcon: ({ color }) => (
-              <MaterialIcons name="history" size={24} color={color} />
-            ),
-          }}
-        />
-      </Tab.Navigator>
-    </NavigationContainer>
+          {/* History Tab */}
+          <Tab.Screen
+            name="HistoryTab"
+            component={HistoryStack}
+            options={{
+              tabBarLabel: "Riwayat",
+              tabBarIcon: ({ color }) => (
+                <MaterialIcons name="history" size={24} color={color} />
+              ),
+            }}
+          />
+        </Tab.Navigator>
+      </NavigationContainer>
+    </AuthProvider>
   );
 }

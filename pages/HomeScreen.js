@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useContext } from "react";
 import {
   View,
   Text,
@@ -8,43 +8,89 @@ import {
   ScrollView,
   Alert,
   TextInput,
+  ActivityIndicator,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
+import { AuthContext } from "../context/AuthContext";
 
-const HomeScreen = () => {
-  // 2. STATE UNTUK STATUS TOMBOL CHECK-IN
+const HomeScreen = ({ navigation }) => {
+  // Ambil data user dari Context
+  const { userData } = useContext(AuthContext);
   const [isCheckedIn, setIsCheckedIn] = useState(false);
-
-  // 3. STATE UNTUK JAM DIGITAL
-  const [currentTime, setCurrentTime] = useState("Memuat jam...");
-
-  // 4. STATE & REF UNTUK CATATAN (Baru)
+  const [currentTime, setCurrentTime] = useState("Memuat jam ...");
   const [note, setNote] = useState("");
-  const noteInputRef = useRef(null); // Membuat "kait" kosong untuk UI
+  const [isPosting, setIsPosting] = useState(false);
+  const noteInputRef = useRef(null);
 
-  // Simulasi statis karena data dipindah ke HistoryScreen
+  const BASE_URL = "http://10.1.10.67:8080/api/presensi";
+
   const attendanceStats = useMemo(() => {
     return { totalPresent: 12, totalAbsent: 2 };
   }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentTime(new Date().toLocaleTimeString("id-ID"));
+      setCurrentTime(new Date().toLocaleTimeString("id-ID", { hour12: false }));
     }, 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const handleCheckIn = () => {
+  const handleCheckIn = async () => {
     if (isCheckedIn) return Alert.alert("Perhatian", "Anda sudah Check In.");
-
     if (note.trim() === "") {
       Alert.alert("Peringatan", "Catatan kehadiran wajib diisi!");
       noteInputRef.current.focus();
       return;
     }
 
-    setIsCheckedIn(true);
-    Alert.alert("Sukses", `Berhasil Check In pada pukul ${currentTime}`);
+    setIsPosting(true);
+    const now = new Date();
+
+    const payload = {
+      kodeMk: "TRPL205",
+      course: "Mobile Programming",
+      status: "Present",
+      nimMhs: userData.nim_mhs,
+      pertemuanKe: 5,
+      date: now.toISOString().split("T")[0],
+      jamPresensi: now.toLocaleTimeString("id-ID", { hour12: false }),
+      kode_qr: "AUTH-TRPL205-W5-XYZ987",
+      ruangan: "Lab Komputer 3",
+      dosenPengampu: "Tim Dosen TRPL",
+    };
+
+    try {
+      const response = await fetch(BASE_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setIsCheckedIn(true);
+        Alert.alert("Berhasil!", "Presensi masuk ke Database Java Spring.", [
+          {
+            text: "Lihat Riwayat",
+            onPress: () => navigation.navigate("HistoryTab"),
+          },
+        ]);
+      } else {
+        Alert.alert("Gagal", result.message || "Terjadi kesalahan di server.");
+      }
+    } catch (error) {
+      Alert.alert(
+        "Error Jaringan",
+        "Pastikan IP Laptop benar and Spring Boot berjalan.",
+      );
+      console.error(error);
+    } finally {
+      setIsPosting(false);
+    }
   };
 
   return (
@@ -52,7 +98,6 @@ const HomeScreen = () => {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>Attendance App</Text>
-          {/* Tampilkan State Jam Digital */}
           <Text style={styles.clockText}>{currentTime}</Text>
         </View>
 
@@ -62,8 +107,8 @@ const HomeScreen = () => {
             <MaterialIcons name="person" size={40} color="#555" />
           </View>
           <View>
-            <Text style={styles.name}>Khairunnisa Aliya</Text>
-            <Text>NIM : 0920240010 </Text>
+            <Text style={styles.name}>{userData.nama}</Text>
+            <Text>NIM : {userData.nim_mhs}</Text>
             <Text>Class : Informatika-2B</Text>
           </View>
         </View>
@@ -71,14 +116,13 @@ const HomeScreen = () => {
         {/* Today's Class */}
         <View style={styles.classCard}>
           <Text style={styles.subtitle}>Today's Class</Text>
-          <Text>Mobile Programming</Text>
+          <Text>Mobile Programming (TRPL205)</Text>
           <Text>08:00 - 10:00</Text>
           <Text>Lab 3</Text>
 
-          {/* Fitur Baru: Kolom Input Catatan dengan useRef */}
           {!isCheckedIn && (
             <TextInput
-              ref={noteInputRef} // <-- Menempelkan referensi ke elemen ini
+              ref={noteInputRef}
               style={styles.inputCatatan}
               placeholder="Tulis catatan (cth: Hadir lab)"
               value={note}
@@ -86,19 +130,29 @@ const HomeScreen = () => {
             />
           )}
 
-          <TouchableOpacity
-            style={[
-              styles.button,
-              isCheckedIn ? styles.buttonDisabled : styles.buttonActive,
-            ]}
-            onPress={handleCheckIn}
-            disabled={isCheckedIn}
-          >
-            <Text style={styles.buttonText}>
-              {isCheckedIn ? "CHECKED IN" : "CHECK IN"}
-            </Text>
-          </TouchableOpacity>
+          {isPosting ? (
+            <ActivityIndicator
+              size="large"
+              color="#007AFF"
+              style={{ marginTop: 15 }}
+            />
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.button,
+                isCheckedIn ? styles.buttonDisabled : styles.buttonActive,
+              ]}
+              onPress={handleCheckIn}
+              disabled={isCheckedIn}
+            >
+              <Text style={styles.buttonText}>
+                {isCheckedIn ? "CHECKED IN" : "CHECK IN SEKARANG"}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
+
+        {/* Stats Card */}
         <View style={styles.statsCard}>
           <View style={styles.statBox}>
             <Text style={styles.statNumber}>
@@ -124,29 +178,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: "#F5F5F5",
-  },
-
-  content: {
-    paddingBottom: 40,
-  },
-
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
+    backgroundColor: "#eee",
   },
 
   title: {
     fontSize: 24,
     fontWeight: "bold",
-  },
-
-  clockText: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#007AFF",
   },
 
   card: {
@@ -185,20 +222,69 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
-  inputCatatan: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 10,
-    marginTop: 15,
-    backgroundColor: "#fafafa",
-  },
-
   button: {
     marginTop: 10,
+    backgroundColor: "#007AFF",
     padding: 10,
     borderRadius: 8,
     alignItems: "center",
+  },
+
+  buttonText: {
+    color: "white",
+  },
+
+  content: {
+    paddingBottom: 40,
+  },
+
+  item: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "white",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+
+  statusContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+
+  course: {
+    fontSize: 16,
+  },
+
+  date: {
+    fontSize: 12,
+    color: "gray",
+  },
+
+  present: {
+    color: "green",
+    fontWeight: "bold",
+  },
+
+  absent: {
+    color: "red",
+    fontWeight: "bold",
+  },
+
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+
+  clockText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#007AFF",
+    fontVariant: ["tabular-nums"],
   },
 
   buttonActive: {
@@ -208,23 +294,25 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     backgroundColor: "#A0C4FF",
   },
-
-  buttonText: {
-    color: "white",
+  inputCatatan: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 15,
+    backgroundColor: "#fafafa",
   },
-
   statsCard: {
     flexDirection: "row",
     justifyContent: "space-around",
     backgroundColor: "white",
     padding: 15,
     borderRadius: 10,
+    marginBottom: 20,
   },
-
   statBox: {
     alignItems: "center",
   },
-
   statNumber: {
     fontSize: 24,
     fontWeight: "bold",
